@@ -2,6 +2,17 @@
 
 轻量级纯静态交互式网页，无需构建工具、后端数据库或用户登录。使用本地浏览器缓存域名，查询 RDAP 注册与到期日期，支持批量导入、搜索/后缀筛选、查询状态、CSV 导出。
 
+## 本地命令行部署（Windows PowerShell，推荐）
+
+```powershell
+git pull origin main
+New-Item -ItemType Directory -Force dist | Out-Null
+Copy-Item index.html dist\\index.html -Force
+npx wrangler@latest pages deploy dist --project-name=domainwatch --branch=main
+```
+
+请在仓库根目录执行，不要附加 `--config`：Wrangler Pages 不支持自定义配置路径，默认读取根目录的 `wrangler.toml`。保留仓库根目录的 `functions/` 及 `worker.js`，Pages 会随前端一起部署函数。独立 `domainwatch-rdap` Worker 如需更新，应执行 `npx wrangler@latest deploy --config wrangler.worker.toml`。
+
 ## 直接使用
 
 1. 用 Chrome / Edge 打开 `index.html`。如果想跨设备访问，可将 `index.html` 部署为静态站点（如 Cloudflare Pages）。
@@ -13,7 +24,7 @@
 
 ## 推荐：Cloudflare Pages 一体化部署（无需独立 Worker）
 
-项目内的 `functions/api/rdap.js` 由 Cloudflare Pages 自动识别，访问 `https://<你的项目>.pages.dev/api/rdap?domain=museora.im` 即可查询 `.im` WHOIS。若已通过 Git 集成部署，推送 GitHub 后 Pages 会自动重新构建；确保在 Cloudflare Pages 项目根目录能找到 `functions/`，并使用 Pages Git 集成部署，而不是仅上传 `dist` 的静态文件。
+项目根目录 `wrangler.toml` 已配置为 Pages（`pages_build_output_dir = "./dist"`）。项目内的 `functions/api/rdap.js` 由 Cloudflare Pages 自动识别，访问 `https://<你的项目>.pages.dev/api/rdap?domain=museora.im` 即可查询 `.im` WHOIS。若已通过 Git 集成部署，推送 GitHub 后 Pages 会自动重新构建；确保在 Cloudflare Pages 项目根目录能找到 `functions/`，并使用 Pages Git 集成部署，而不是仅上传 `dist` 的静态文件。
 
 已部署的网站打开「查询设置」并清空旧的代理地址即可默认使用本站接口；`.im` 会优先使用本站接口，即使旧代理地址仍在。成功的 `.im` 查询可能只有到期时间，没有注册时间，这是注册局公开数据本身的限制。
 
@@ -25,7 +36,7 @@
 
 ```sh
 npx wrangler login
-npx wrangler deploy
+npx wrangler deploy --config wrangler.worker.toml
 ```
 
 部署成功后获得类似 `https://domainwatch-rdap.<subdomain>.workers.dev` 的地址。打开网页「查询设置」，填写：
@@ -104,6 +115,6 @@ window.open('https://domains.yoursite.com/#data=' + encodeURIComponent(JSON.stri
 3. 到 GitHub Actions → Deploy DomainWatch Pages → Run workflow → main 触发首次部署。以后 push main 自动部署。
 4. 打开 `https://domainwatch-ba3.pages.dev/api/rdap?domain=museora.im` 验证 Pages Function。
 
-工作流使用 `wrangler.pages.toml`，不会读取仓库根目录用于独立 Worker 的 `wrangler.toml`。不会自动更新 `domainwatch-rdap` 独立 Worker；Pages 自己的 `/api/rdap` 已可处理普通 RDAP 及 `.im` WHOIS。
+工作流使用根目录 `wrangler.toml` 作为 Pages 配置，不使用 `--config`。独立 Worker 原配置保存在 `wrangler.worker.toml`。不会自动更新 `domainwatch-rdap` 独立 Worker；Pages 自己的 `/api/rdap` 已可处理普通 RDAP 及 `.im` WHOIS。
 
-如果暂时不想使用 GitHub Actions，也可以在本地仓库根目录执行 `mkdir dist`、将 `index.html` 拷贝至 `dist/index.html`，然后 `npx wrangler pages deploy dist --project-name=domainwatch --config wrangler.pages.toml` 手动更新。注意直接在 Cloudflare Pages 控制台拖放 `dist` 无法部署 `functions/`。
+如果暂时不想使用 GitHub Actions，也可以在本地仓库根目录执行 `mkdir dist`、将 `index.html` 拷贝至 `dist/index.html`，然后 `npx wrangler pages deploy dist --project-name=domainwatch --branch=main` 手动更新。注意直接在 Cloudflare Pages 控制台拖放 `dist` 无法部署 `functions/`。
