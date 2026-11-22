@@ -95,3 +95,15 @@ window.open('https://domains.yoursite.com/#data=' + encodeURIComponent(JSON.stri
 - `.example` 是保留后缀，演示数据不是实际 WHOIS 查询数据。
 - 跨域限制、429、404、超时、日期缺失是不同情况，分别按失败或日期缺失显示。
 - 仅接受域名，不会作为通用 URL 转发器，也不会读取域名归属人的隐私信息。
+## GitHub Actions 自动更新现有 Pages 项目
+
+目前 Cloudflare Pages 项目 `domainwatch` 是 Direct Upload 创建的，**不会因 GitHub push 自动更新**，也不能原地转换为 Pages Git 集成。仓库增加了 `.github/workflows/deploy-pages.yml`，在添加两个 GitHub Secrets 后，可以直接更新原有 Pages 网站：
+
+1. Cloudflare 控制台创建 Cloudflare API Token，Account 权限至少 `Cloudflare Pages: Edit`，并限制到相应账户。
+2. GitHub 仓库 Settings → Secrets and variables → Actions 中新增 `CLOUDFLARE_API_TOKEN`（Token）以及 `CLOUDFLARE_ACCOUNT_ID`（账户 ID）。**不要将 Token 写入仓库或 README。**
+3. 到 GitHub Actions → Deploy DomainWatch Pages → Run workflow → main 触发首次部署。以后 push main 自动部署。
+4. 打开 `https://domainwatch-ba3.pages.dev/api/rdap?domain=museora.im` 验证 Pages Function。
+
+工作流使用 `wrangler.pages.toml`，不会读取仓库根目录用于独立 Worker 的 `wrangler.toml`。不会自动更新 `domainwatch-rdap` 独立 Worker；Pages 自己的 `/api/rdap` 已可处理普通 RDAP 及 `.im` WHOIS。
+
+如果暂时不想使用 GitHub Actions，也可以在本地仓库根目录执行 `mkdir dist`、将 `index.html` 拷贝至 `dist/index.html`，然后 `npx wrangler pages deploy dist --project-name=domainwatch --config wrangler.pages.toml` 手动更新。注意直接在 Cloudflare Pages 控制台拖放 `dist` 无法部署 `functions/`。
