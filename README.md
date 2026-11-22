@@ -118,3 +118,26 @@ window.open('https://domains.yoursite.com/#data=' + encodeURIComponent(JSON.stri
 工作流使用根目录 `wrangler.toml` 作为 Pages 配置，不使用 `--config`。独立 Worker 原配置保存在 `wrangler.worker.toml`。不会自动更新 `domainwatch-rdap` 独立 Worker；Pages 自己的 `/api/rdap` 已可处理普通 RDAP 及 `.im` WHOIS。
 
 如果暂时不想使用 GitHub Actions，也可以在本地仓库根目录执行 `mkdir dist`、将 `index.html` 拷贝至 `dist/index.html`，然后 `npx wrangler pages deploy dist --project-name=domainwatch --branch=main` 手动更新。注意直接在 Cloudflare Pages 控制台拖放 `dist` 无法部署 `functions/`。
+
+## 502 修复与检查（2026-11-22）
+
+本次修复将普通后缀恢复为浏览器直接查询 RDAP（如果用户未填写自定义代理），避免 Pages Function 失效导致全站域名查询 502；仅 `.im` 默认走 Pages `/api/rdap`。后端支持 IANA RDAP 权威服务发现、`.im` 官方 HTTPS WHOIS 页面、WHOIS TCP 43 备用查询。未验证所有注册局在 Cloudflare 运行时环境下都能连通。
+
+本地更新并部署：
+
+```powershell
+git pull origin main
+New-Item -ItemType Directory -Force dist | Out-Null
+Copy-Item index.html dist\index.html -Force
+npx wrangler@latest pages functions build functions
+npx wrangler@latest pages deploy dist --project-name=domainwatch --branch=main
+```
+
+部署完成检查：
+
+- `https://domainwatch-ba3.pages.dev/api/rdap?health=1` 返回含版本 `2026-11-22.2` 的 JSON，证明新函数已部署
+- `https://domainwatch-ba3.pages.dev/api/rdap?domain=museora.im` 优先查询官方 HTTPS WHOIS，失败时尝试 TCP；如返回 502，JSON 的 `detail` 提供具体故障类型
+- 网站「查询设置」中的自定义代理留空，刷新 .com 等域名应走 `rdap.org`，只有 .im 走本地接口
+
+若遇到 CORS 或 502，请使用 DevTools Network 查看 Response JSON 并检查 Pages Functions 日志，不要把 404 统一解释为域名不存在。
+
