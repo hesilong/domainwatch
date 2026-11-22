@@ -1,7 +1,3 @@
-name = "domainwatch-rdap"
-main = "worker.js"
-compatibility_date = "2026-11-09"
-
-# Optional: set ALLOWED_ORIGIN to your hosted dashboard origin to restrict browser access.
-# [vars]
-# ALLOWED_ORIGIN = "https://your-domain.example"
+name = "domainwatch"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-11-22"
