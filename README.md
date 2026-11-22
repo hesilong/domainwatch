@@ -6,12 +6,20 @@
 
 1. 用 Chrome / Edge 打开 `index.html`。如果想跨设备访问，可将 `index.html` 部署为静态站点（如 Cloudflare Pages）。
 2. 点击「添加域名」，一行一个粘贴域名，或导入 TXT、CSV、JSON。选择「导入并查询」。
-3. 默认浏览器直接访问 `https://rdap.org/domain/<域名>`。**某些注册局会阻止浏览器跨域查询**，出现「查询失败」是正常保护行为，此时部署下面的 Worker 并在「查询设置」填写代理 URL。
+3. 部署在 Cloudflare Pages 时，默认通过本站 `/api/rdap` 查询：普通域名走 RDAP，`.im` 域名走注册局 WHOIS（TCP 43）；直接用本地文件打开时才会直连 rdap.org，因浏览器跨域限制可能失败。
 4. 可以点击每行刷新图标强制查询，或者点击「刷新 WHOIS」刷新全部，绕过浏览器本地缓存。
 
 > 查询使用 RDAP，替代旧 WHOIS 的注册信息接口。不同后缀返回的字段/格式可能不同，日期缺失时 UI 会明确标注，而不会推测或伪造结果。请以注册商控制台中显示的实际续费时间为准。
 
-## 推荐：部署 Cloudflare Worker 代理
+## 推荐：Cloudflare Pages 一体化部署（无需独立 Worker）
+
+项目内的 `functions/api/rdap.js` 由 Cloudflare Pages 自动识别，访问 `https://<你的项目>.pages.dev/api/rdap?domain=museora.im` 即可查询 `.im` WHOIS。若已通过 Git 集成部署，推送 GitHub 后 Pages 会自动重新构建；确保在 Cloudflare Pages 项目根目录能找到 `functions/`，并使用 Pages Git 集成部署，而不是仅上传 `dist` 的静态文件。
+
+已部署的网站打开「查询设置」并清空旧的代理地址即可默认使用本站接口；`.im` 会优先使用本站接口，即使旧代理地址仍在。成功的 `.im` 查询可能只有到期时间，没有注册时间，这是注册局公开数据本身的限制。
+
+**注意：** `.im` WHOIS 使用 Cloudflare 的出站 TCP Socket，实际能否连接取决于注册局是否接受该出口的连接。若出现 `WHOIS_LOOKUP_FAILED` 或 `WHOIS_TIMEOUT`，检查 Pages Function 日志，并可通过 [nic.im 官方 WHOIS 页面](https://www.nic.im/public/whois.mth) 手动确认。提交代码不代表线上查询已验证成功。
+
+## 备选：独立部署 Cloudflare Worker 代理
 
 本目录有 `worker.js` 和 `wrangler.toml`：
 
@@ -26,7 +34,7 @@ npx wrangler deploy
 https://domainwatch-rdap.<subdomain>.workers.dev/api/rdap
 ```
 
-Worker 只接收受校验的域名参数，查询 RDAP 服务器并统一映射 `registrationDate` / `expirationDate`，上游在 Cloudflare 边缘缓存 6 小时，正常响应在客户端可缓存 7 天；查询失败只本地缓存 15 分钟。可修改 `wrangler.toml`，配置 `ALLOWED_ORIGIN` 将 CORS 收窄到已部署网站的源。如果网页从 `file://` 打开，浏览器可能传 `Origin: null`，此时不要设置只允许 HTTPS 源；建议将网页一起部署到 Cloudflare Pages。
+Worker 只接收受校验的域名参数，`.im` 使用 WHOIS（`whois.nic.im:43`），其他后缀查询 RDAP 并统一映射 `registrationDate` / `expirationDate`，RDAP 上游缓存 6 小时，正常响应在客户端可缓存 7 天；查询失败只本地缓存 15 分钟。可修改 `wrangler.toml`，配置 `ALLOWED_ORIGIN` 将 CORS 收窄到已部署网站的源。如果网页从 `file://` 打开，浏览器可能传 `Origin: null`，此时不要设置只允许 HTTPS 源；建议将网页一起部署到 Cloudflare Pages。
 
 实际生产对外开放前，建议添加 Cloudflare 速率限制或 Turnstile 防刷。
 
